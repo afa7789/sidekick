@@ -29,7 +29,7 @@ llama-server \
   -ngl 99 \
   -c 16384 \
   -t 8 \
-  --flash-attn \
+  --flash-attn auto \
   --cache-type-k q8_0 \
   --temp 0.7 \
   > "$PROJECT_ROOT/logs/llama.log" 2>&1
