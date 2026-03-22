@@ -1,0 +1,16 @@
+# Ignore heavy AI models
+*.gguf
+*.bin
+models/
+
+# Ignore IDE and Llama logs
+*.log
+logs/
+
+# System files (Mac)
+.DS_Store
+
+# Binaries and compiled files (if you decide to compile llama.cpp locally)
+llama.cpp/
+llama.cpp-bin/
+build/
