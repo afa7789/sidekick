@@ -75,3 +75,6 @@ This happens when the "context window" clashes with the machine's physical memor
 Add the following *flags* to the execution in the `start-llama.sh` file to give high priority to the threads on your Mac logic board:
 - `--mlock` (Locks the model firmly in RAM and prevents it from swapping to the SSD)
 - `--prio 2` (Guarantees high priority in Mac processor distribution)
+
+**If OpenCode text is black / hard to read on a dark terminal:**
+While running OpenCode, simply type `/theme` and press **Enter** to select a dark-mode friendly theme (like `system`, `tokyonight`, or `one-dark`).
