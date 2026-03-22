@@ -47,6 +47,12 @@ Safely shuts down the AI server and completely frees up your RAM.
 ./scripts/stop-all.sh
 ```
 
+### Sync Models with OpenCode
+Updates `~/.config/opencode/opencode.json` based on running servers and available models:
+```bash
+./scripts/sync-opencode-models.sh
+```
+
 ### Start Only the Local AI Server
 Useful if you want to connect the AI to your native VS Code, Cursor, or Cline extensions via port `8080`.
 ```bash
