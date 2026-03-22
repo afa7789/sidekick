@@ -15,10 +15,8 @@ echo "=== STARTING LOCAL AI STACK ==="
 if curl -s http://localhost:$PORT/v1/models > /dev/null; then
   echo "=> llama.cpp server is already online on port $PORT."
 else
-  echo "=> Starting llama.cpp server in the background..."
-  nohup "$PROJECT_ROOT/scripts/start-llama.sh" &
-  echo "=> Waiting 10 seconds for the model to load into Unified Memory..."
-  sleep 10
+  echo "=> Starting llama.cpp server..."
+  "$PROJECT_ROOT/scripts/start-llama.sh"
 fi
 
 echo "=> Launching OpenCode CLI..."
