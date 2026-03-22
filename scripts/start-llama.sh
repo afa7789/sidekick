@@ -14,10 +14,15 @@ MODEL_PATH="$PROJECT_ROOT/models/$MODEL_FILE"
 echo "Accelerating llama.cpp server..."
 echo "Using model: $MODEL_FILE on port $PORT"
 
-cd ~/llama.cpp-bin || { echo "❌ error: llama.cpp-bin directory not found. Please install llama.cpp."; exit 1; }
+# Verify if llama-server is installed
+if ! command -v llama-server &> /dev/null; then
+    echo "❌ error: llama-server not found in PATH."
+    echo "=> Please run: ./scripts/install-deps.sh"
+    exit 1
+fi
 
 # Execute the local GGUF server and pipe logs to the background
-./llama-server \
+llama-server \
   -m "$MODEL_PATH" \
   --host 127.0.0.1 \
   --port $PORT \
