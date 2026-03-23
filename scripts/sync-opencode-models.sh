@@ -48,7 +48,7 @@ update_config() {
       }
     }
   },
-  "model": "local/${model}"
+  "model": "opencode/big-pickle"
 }
 EOF
     
