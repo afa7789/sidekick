@@ -15,6 +15,15 @@ if [[ "$MODELS_DIR" == /* ]]; then
 else
     RESOLVED_MODELS_DIR="$PROJECT_ROOT/${MODELS_DIR#./}"
 fi
+
+# llama.cpp tuning defaults (can be overridden in .env)
+LLAMA_NGL="${LLAMA_NGL:-35}"
+LLAMA_CTX="${LLAMA_CTX:-4096}"
+LLAMA_BATCH="${LLAMA_BATCH:-256}"
+LLAMA_UBATCH="${LLAMA_UBATCH:-256}"
+LLAMA_THREADS="${LLAMA_THREADS:-8}"
+LLAMA_FA="${LLAMA_FA:-true}"
+
 LOG_FILE="$PROJECT_ROOT/logs/llama.log"
 PIDS_DIR="$PROJECT_ROOT/logs/pids"
 mkdir -p "$PIDS_DIR"
@@ -163,17 +172,34 @@ start() {
     echo "   Model : $selected_model"
     echo "   Port  : $LLAMA_PORT"
 
-    llama-server \
-        -m "$model_path" \
-        --host 127.0.0.1 \
-        --port "$LLAMA_PORT" \
-        -ngl 99 \
-        -c 16384 \
-        -t 8 \
-        --flash-attn auto \
-        --cache-type-k q8_0 \
-        --temp 0.7 \
-        > "$LOG_FILE" 2>&1 &
+    if [ "$LLAMA_CTX" -gt 8192 ] 2>/dev/null; then
+        echo "   ⚠️  High context configured (LLAMA_CTX=$LLAMA_CTX)."
+        echo "   If you see Metal OOM errors, reduce LLAMA_CTX to 4096."
+    fi
+
+    echo "   Tuning: ngl=$LLAMA_NGL ctx=$LLAMA_CTX b=$LLAMA_BATCH ub=$LLAMA_UBATCH t=$LLAMA_THREADS fa=$LLAMA_FA"
+
+    local -a llama_cmd=(
+        llama-server
+        -m "$model_path"
+        --host 127.0.0.1
+        --port "$LLAMA_PORT"
+        -ngl "$LLAMA_NGL"
+        -c "$LLAMA_CTX"
+        -b "$LLAMA_BATCH"
+        -ub "$LLAMA_UBATCH"
+        -t "$LLAMA_THREADS"
+        --cache-type-k q8_0
+        --temp 0.7
+    )
+
+    case "${LLAMA_FA,,}" in
+        true|1|yes|on)
+            llama_cmd+=( -fa )
+            ;;
+    esac
+
+    "${llama_cmd[@]}" > "$LOG_FILE" 2>&1 &
 
     local pid=$!
     echo "$pid" > "$PID_FILE"
