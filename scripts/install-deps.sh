@@ -1,38 +1,51 @@
 #!/usr/bin/env bash
 
-# =================================================================
-# AI Stack Dependencies Installer
-# =================================================================
-
 echo "==========================================================="
-echo "  Installing Local AI Stack Dependencies                   "
+echo "  Installing Sidekick Dependencies                         "
 echo "==========================================================="
 echo ""
 
-# 1. Install llama.cpp (The engine)
-echo "=> [1/2] Installing llama.cpp (Engine)..."
-if command -v brew >/dev/null 2>&1; then
+# 1. llama.cpp
+echo "=> [1/3] Installing llama.cpp (AI engine)..."
+if command -v llama-server &> /dev/null; then
+    echo "   ✅ llama.cpp already installed."
+elif command -v brew >/dev/null 2>&1; then
     brew install llama.cpp
+    echo "   ✅ llama.cpp installed!"
 else
-    echo "❌ Error: Homebrew is not installed. Please install Homebrew first:"
-    echo "   /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+    echo "   ❌ Homebrew not found. Install it first:"
+    echo "      /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
     exit 1
 fi
-echo "=> ✅ llama.cpp installed successfully!"
 echo ""
 
-# 2. Install OpenCode CLI (The interface)
-echo "=> [2/2] Installing OpenCode CLI (Interface)..."
-if command -v npm >/dev/null 2>&1; then
-    npm install -g opencode-ai
+# 2. Node.js / npx (for Silverbullet)
+echo "=> [2/3] Checking Node.js (required for Silverbullet)..."
+if command -v npx &> /dev/null; then
+    echo "   ✅ Node.js already installed ($(node --version))."
 else
-    echo "⚠️ Warning: npm is poorly configured or not installed, falling back to curl installer..."
-    curl -fsSL https://opencode.ai/install | bash
+    echo "   Installing Node.js via Homebrew..."
+    brew install node
+    echo "   ✅ Node.js installed!"
 fi
-echo "=> ✅ OpenCode CLI installed successfully!"
+echo ""
+
+# 3. jq (for agent.sh JSON parsing)
+echo "=> [3/3] Checking jq (required for agent.sh)..."
+if command -v jq &> /dev/null; then
+    echo "   ✅ jq already installed."
+else
+    brew install jq
+    echo "   ✅ jq installed!"
+fi
 echo ""
 
 echo "==========================================================="
 echo "  All dependencies are installed!                          "
-echo "  You can now run: ./scripts/start-all.sh                  "
+echo ""
+echo "  Next steps:"
+echo "  1. cp .env.example .env"
+echo "  2. Edit .env and set MODEL_FILE to your .gguf file"
+echo "  3. Place the .gguf file in the models/ directory"
+echo "  4. ./scripts/start-all.sh"
 echo "==========================================================="

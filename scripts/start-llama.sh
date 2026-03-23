@@ -9,7 +9,13 @@ else
     source "$PROJECT_ROOT/.env.example"
 fi
 
-MODEL_PATH="$PROJECT_ROOT/models/$MODEL_FILE"
+# Resolve MODELS_DIR (supports absolute paths and paths relative to project root)
+if [[ "$MODELS_DIR" == /* ]]; then
+    RESOLVED_MODELS_DIR="$MODELS_DIR"
+else
+    RESOLVED_MODELS_DIR="$PROJECT_ROOT/${MODELS_DIR#./}"
+fi
+MODEL_PATH="$RESOLVED_MODELS_DIR/$MODEL_FILE"
 LOG_FILE="$PROJECT_ROOT/logs/llama.log"
 PIDS_DIR="$PROJECT_ROOT/logs/pids"
 mkdir -p "$PIDS_DIR"
@@ -31,7 +37,7 @@ status() {
     if is_running; then
         local pid
         pid=$(cat "$PID_FILE")
-        echo "✅ llama.cpp is running  (PID $pid, port $PORT)"
+        echo "✅ llama.cpp is running  (PID $pid, port $LLAMA_PORT)"
     else
         echo "🔴 llama.cpp is NOT running"
     fi
@@ -61,9 +67,15 @@ start() {
     if is_running; then
         local pid
         pid=$(cat "$PID_FILE")
-        echo "⚠️  llama.cpp is already running (PID $pid, port $PORT)."
+        echo "⚠️  llama.cpp is already running (PID $pid, port $LLAMA_PORT)."
         echo "   Use '$0 stop' to stop it first, or '$0 restart' to restart."
         exit 0
+    fi
+
+    if [ ! -f "$MODEL_PATH" ]; then
+        echo "❌ Error: model not found at $MODEL_PATH"
+        echo "=> Please set MODEL_FILE in .env and place the .gguf file in models/"
+        exit 1
     fi
 
     mkdir -p "$PROJECT_ROOT/logs"
@@ -72,12 +84,12 @@ start() {
 
     echo "🚀 Starting llama.cpp server..."
     echo "   Model : $MODEL_FILE"
-    echo "   Port  : $PORT"
+    echo "   Port  : $LLAMA_PORT"
 
     llama-server \
         -m "$MODEL_PATH" \
         --host 127.0.0.1 \
-        --port "$PORT" \
+        --port "$LLAMA_PORT" \
         -ngl 99 \
         -c 16384 \
         -t 8 \
@@ -94,13 +106,12 @@ start() {
     echo -n "   Waiting for server to be ready"
     local retries=30
     while [ $retries -gt 0 ]; do
-        if curl -sf "http://127.0.0.1:$PORT/health" > /dev/null 2>&1; then
+        if curl -sf "http://127.0.0.1:$LLAMA_PORT/health" > /dev/null 2>&1; then
             echo ""
-            echo "✅ llama.cpp is running! (PID $pid, port $PORT)"
+            echo "✅ llama.cpp is running! (PID $pid, port $LLAMA_PORT)"
             echo "   Logs: $LOG_FILE"
             return 0
         fi
-        # Check if the process died unexpectedly
         if ! kill -0 "$pid" 2>/dev/null; then
             echo ""
             echo "❌ llama.cpp crashed on startup. Last log lines:"
@@ -114,7 +125,7 @@ start() {
     done
 
     echo ""
-    echo "⚠️  Server did not respond after 30 s (still may be loading)."
+    echo "⚠️  Server did not respond after 30s (still may be loading)."
     echo "   PID: $pid — check logs: $LOG_FILE"
 }
 

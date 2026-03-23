@@ -2,9 +2,25 @@
 # sync-opencode-models.sh - Sync local models with opencode config
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Load .env for OPENROUTER_API_KEY and MODELS_DIR
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    source "$PROJECT_ROOT/.env"
+else
+    source "$PROJECT_ROOT/.env.example"
+fi
+
 CONFIG_DIR="${HOME}/.config/opencode"
 CONFIG_FILE="${CONFIG_DIR}/opencode.json"
-MODEL_DIR="${HOME}/Developer/arthur/local-code/models"
+
+# Resolve MODEL_DIR from MODELS_DIR in .env
+if [[ "${MODELS_DIR}" == /* ]]; then
+    MODEL_DIR="${MODELS_DIR}"
+else
+    MODEL_DIR="$(cd "$PROJECT_ROOT/${MODELS_DIR#./}" 2>/dev/null && pwd || echo "$PROJECT_ROOT/${MODELS_DIR#./}")"
+fi
 
 list_models() {
     if [ -d "$MODEL_DIR" ]; then
@@ -28,9 +44,20 @@ list_running_servers() {
 update_config() {
     local port="$1"
     local model="$2"
-    
+
     mkdir -p "$CONFIG_DIR"
-    
+
+    local openrouter_block=""
+    if [ -n "${OPENROUTER_API_KEY}" ] && [ "${OPENROUTER_API_KEY}" != "your-openrouter-api-key" ]; then
+        openrouter_block=",
+    \"openrouter\": {
+      \"options\": {
+        \"baseURL\": \"https://openrouter.ai/api/v1\",
+        \"apiKey\": \"${OPENROUTER_API_KEY}\"
+      }
+    }"
+    fi
+
     cat > "$CONFIG_FILE" <<EOF
 {
   "\$schema": "https://opencode.ai/config.json",
@@ -46,13 +73,18 @@ update_config() {
           "name": "${model%.gguf}"
         }
       }
-    }
+    }${openrouter_block}
   },
-  "model": "opencode/big-pickle"
+  "model": "openrouter/free",
+  "small_model": "openrouter/free"
 }
 EOF
-    
-    echo "Updated config: port=${port}, model=${model}"
+
+    if [ -n "$openrouter_block" ]; then
+        echo "Updated config: port=${port}, model=${model}, openrouter=enabled"
+    else
+        echo "Updated config: port=${port}, model=${model}"
+    fi
 }
 
 echo "=== opencode model sync ==="

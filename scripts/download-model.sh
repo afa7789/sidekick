@@ -5,13 +5,19 @@
 # =================================================================
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODEL_DIR="$PROJECT_ROOT/models"
 
-# Load variables (Read from .env if it exists, otherwise use .env.example)
+# Load variables
 if [ -f "$PROJECT_ROOT/.env" ]; then
     source "$PROJECT_ROOT/.env"
 else
     source "$PROJECT_ROOT/.env.example"
+fi
+
+# Resolve MODELS_DIR (supports absolute paths and paths relative to project root)
+if [[ "$MODELS_DIR" == /* ]]; then
+    RESOLVED_MODELS_DIR="$MODELS_DIR"
+else
+    RESOLVED_MODELS_DIR="$PROJECT_ROOT/${MODELS_DIR#./}"
 fi
 
 MODEL_URL="https://huggingface.co/$MODEL_REPO/resolve/main/$MODEL_FILE"
@@ -21,31 +27,30 @@ echo "  Local GGUF Model Installer"
 echo "  Downloading: $MODEL_FILE"
 echo "==========================================================="
 echo ""
-echo "Preparing the models folder..."
+echo "=> Models directory: $RESOLVED_MODELS_DIR"
 
-mkdir -p "$MODEL_DIR"
+mkdir -p "$RESOLVED_MODELS_DIR"
 
-if [ -f "$MODEL_DIR/$MODEL_FILE" ]; then
-    echo "=> ✅ Model already exists at: $MODEL_DIR/$MODEL_FILE"
+if [ -f "$RESOLVED_MODELS_DIR/$MODEL_FILE" ]; then
+    echo "=> ✅ Model already exists at: $RESOLVED_MODELS_DIR/$MODEL_FILE"
     echo "=> No download required. You are all set!"
     exit 0
 fi
 
-echo "=> Downloading from repository: $MODEL_REPO"
-echo "=> Saving to: $MODEL_DIR/$MODEL_FILE"
-echo "=> Models are usually 5GB to 10GB. This might take a few minutes!"
+echo "=> Downloading from: $MODEL_REPO"
+echo "=> Saving to: $RESOLVED_MODELS_DIR/$MODEL_FILE"
+echo "=> LFM2-24B is ~24GB. This will take a while!"
 echo ""
 
-# Download tracking the progress
-curl -L -o "$MODEL_DIR/$MODEL_FILE" "$MODEL_URL"
+curl -L --progress-bar -o "$RESOLVED_MODELS_DIR/$MODEL_FILE" "$MODEL_URL"
 
 if [ $? -eq 0 ]; then
     echo ""
     echo "=> ✅ Download completed successfully!"
-    echo "=> You can now start your local AI Stack!"
+    echo "=> You can now run: ./scripts/start-all.sh"
 else
     echo ""
-    echo "=> ❌ Error during download. Checking for network issues..."
-    rm -f "$MODEL_DIR/$MODEL_FILE" # Clean partial corrupted file
+    echo "=> ❌ Error during download."
+    rm -f "$RESOLVED_MODELS_DIR/$MODEL_FILE"
     exit 1
 fi
