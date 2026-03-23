@@ -15,11 +15,82 @@ if [[ "$MODELS_DIR" == /* ]]; then
 else
     RESOLVED_MODELS_DIR="$PROJECT_ROOT/${MODELS_DIR#./}"
 fi
-MODEL_PATH="$RESOLVED_MODELS_DIR/$MODEL_FILE"
 LOG_FILE="$PROJECT_ROOT/logs/llama.log"
 PIDS_DIR="$PROJECT_ROOT/logs/pids"
 mkdir -p "$PIDS_DIR"
 PID_FILE="$PIDS_DIR/llama.pid"
+LAST_MODEL_FILE="$PIDS_DIR/last-model.txt"
+
+list_available_models() {
+    if [ ! -d "$RESOLVED_MODELS_DIR" ]; then
+        return 0
+    fi
+
+    find "$RESOLVED_MODELS_DIR" -maxdepth 1 -type f -name "*.gguf" -print | while read -r file; do
+        basename "$file"
+    done | sort
+}
+
+is_interactive_shell() {
+    [ -t 0 ] && [ -t 1 ]
+}
+
+select_model() {
+    local selected_model=""
+    local env_model_path=""
+    local last_model=""
+    local -a available_models=()
+
+    while IFS= read -r model; do
+        [ -n "$model" ] && available_models+=("$model")
+    done < <(list_available_models)
+
+    if [ ${#available_models[@]} -eq 0 ]; then
+        echo ""
+        echo "❌ Error: no .gguf models found in $RESOLVED_MODELS_DIR"
+        echo "=> Download one with: ./scripts/download-model.sh"
+        return 1
+    fi
+
+    env_model_path="$RESOLVED_MODELS_DIR/$MODEL_FILE"
+    if [ -n "$MODEL_FILE" ] && [ -f "$env_model_path" ]; then
+        selected_model="$MODEL_FILE"
+    fi
+
+    if [ -z "$selected_model" ] && [ -f "$LAST_MODEL_FILE" ]; then
+        last_model="$(cat "$LAST_MODEL_FILE" 2>/dev/null)"
+        if [ -n "$last_model" ] && [ -f "$RESOLVED_MODELS_DIR/$last_model" ]; then
+            selected_model="$last_model"
+        fi
+    fi
+
+    if [ -z "$selected_model" ]; then
+        if [ ${#available_models[@]} -eq 1 ]; then
+            selected_model="${available_models[0]}"
+        elif is_interactive_shell; then
+            echo "🧠 Multiple models found. Choose one:"
+            local i=1
+            for model in "${available_models[@]}"; do
+                echo "   $i) $model"
+                ((i++))
+            done
+
+            local choice=""
+            while true; do
+                read -rp "Select model [1-${#available_models[@]}]: " choice
+                if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#available_models[@]} ]; then
+                    selected_model="${available_models[$((choice-1))]}"
+                    break
+                fi
+                echo "Invalid choice. Try again."
+            done
+        else
+            selected_model="${available_models[0]}"
+        fi
+    fi
+
+    printf "%s" "$selected_model"
+}
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -72,22 +143,28 @@ start() {
         exit 0
     fi
 
-    if [ ! -f "$MODEL_PATH" ]; then
-        echo "❌ Error: model not found at $MODEL_PATH"
-        echo "=> Please set MODEL_FILE in .env and place the .gguf file in models/"
+    local selected_model
+    selected_model="$(select_model)" || exit 1
+    local model_path="$RESOLVED_MODELS_DIR/$selected_model"
+
+    if [ ! -f "$model_path" ]; then
+        echo "❌ Error: model not found at $model_path"
+        echo "=> Please set MODEL_FILE in .env or place a .gguf file in $RESOLVED_MODELS_DIR"
         exit 1
     fi
+
+    printf "%s" "$selected_model" > "$LAST_MODEL_FILE"
 
     mkdir -p "$PROJECT_ROOT/logs"
 
     # ── Launch ──────────────────────────────────────────────────────────────────
 
     echo "🚀 Starting llama.cpp server..."
-    echo "   Model : $MODEL_FILE"
+    echo "   Model : $selected_model"
     echo "   Port  : $LLAMA_PORT"
 
     llama-server \
-        -m "$MODEL_PATH" \
+        -m "$model_path" \
         --host 127.0.0.1 \
         --port "$LLAMA_PORT" \
         -ngl 99 \
