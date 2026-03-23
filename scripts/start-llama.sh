@@ -24,6 +24,7 @@ LLAMA_UBATCH="${LLAMA_UBATCH:-256}"
 LLAMA_THREADS="${LLAMA_THREADS:-8}"
 LLAMA_FA="${LLAMA_FA:-true}"
 LLAMA_REASONING_BUDGET="${LLAMA_REASONING_BUDGET:-}"
+LLAMA_REASONING="${LLAMA_REASONING:-}"
 
 LOG_FILE="$PROJECT_ROOT/logs/llama.log"
 PIDS_DIR="$PROJECT_ROOT/logs/pids"
@@ -267,6 +268,10 @@ start() {
     esac
 
     llama_cmd+=( --flash-attn "$llama_fa_value" )
+
+    if [ -n "$LLAMA_REASONING" ]; then
+        llama_cmd+=( --reasoning "$LLAMA_REASONING" )
+    fi
 
     if [ -n "$LLAMA_REASONING_BUDGET" ]; then
         if supports_reasoning_budget; then
